@@ -1,0 +1,27 @@
+{
+  "name": "capp",
+  "version": "0.1.0",
+  "description": "Uber-simple CouchApp deployment with Node.js.",
+  "main": "index.js",
+  "bin": "./bin/capp",
+  "dependencies": {
+    "nano": "~4.2.1",
+    "glob": "~3.2.7",
+    "async": "~0.2.9",
+    "ncp": "~0.4.2",
+    "optimist": "~0.6.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/nick-thompson/capp"
+  },
+  "keywords": [
+    "couchdb",
+    "couchapp"
+  ],
+  "author": "Nick Thompson",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nick-thompson/capp/issues"
+  }
+}
