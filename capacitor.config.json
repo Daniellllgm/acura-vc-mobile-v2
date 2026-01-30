@@ -1,8 +1,9 @@
 {
-  "appId": "com.app.acura",
-  "appName": "Acura",
-  "webDir": ".", //https://acura.vc ou "www", "build", "public" - nome da pasta com o index.html
-  "server": {
-    "url": "https://acura.vc"
-  }
+  "appId": "com.acura.vc",
+  "appName": "Acura VC",
+  "webDir": "www",
+  "ios": {
+    "path": "ios"
+  },
+  "bundledWebRuntime": false
 }
