@@ -2,5 +2,8 @@
   "appId": "com.acura.vc",
   "appName": "Acura VC",
   "webDir": "www",
-  "bundledWebRuntime": false
+  "server": {
+    "url": "https://acura.vc", 
+    "cleartext": true
+  }
 }
