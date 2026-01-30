@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "@capacitor/cli": "^8.0.2",
+    "@capacitor/core": "^8.0.2",
+    "@capacitor/ios": "^8.0.2",
+    "add": "^2.0.6",
+    "cap": "^0.2.1",
+    "capp": "^0.1.0",
+    "copy": "^0.3.2",
+    "init": "^0.1.2",
+    "ios": "^0.0.1",
+    "npx": "^3.0.0"
+  }
+}

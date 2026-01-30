@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar Conta - Sistema Cuidador</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        /* Animação de Loading */
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #ffffff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden p-8 space-y-6">
+        
+        <div class="text-center">
+            <div class="flex items-center justify-center mb-4">                        
+                <img src="imagens/Acura_logo_claro_menor.png" class="h-20 mx-auto" />
+            </div>
+            <h1 class="text-2xl font-bold text-slate-800">Crie sua Conta</h1>
+            <p class="text-slate-500 mt-2 text-sm">Preencha os dados abaixo para começar a cuidar.</p>
+        </div>
+
+        <div id="alertBox" class="hidden p-4 rounded-lg text-sm text-center border"></div>
+
+        <form id="registerForm" class="space-y-4">
+            
+            <div>
+                <label for="name" class="block text-sm font-medium text-slate-700 mb-1">Nome Completo</label>
+                <input type="text" id="name" required
+                    class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-400"
+                    placeholder="Ex: Maria Silva">
+            </div>
+
+            <div>
+                <label for="email" class="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                <input type="email" id="email" required
+                    class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-400"
+                    placeholder="seu@email.com">
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-slate-700 mb-1">Senha</label>
+                <input type="password" id="password" required minlength="6"
+                    class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-400"
+                    placeholder="Mínimo 6 caracteres">
+            </div>
+
+            <div>
+                <label for="confirmPassword" class="block text-sm font-medium text-slate-700 mb-1">Confirmar Senha</label>
+                <input type="password" id="confirmPassword" required minlength="6"
+                    class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-slate-400"
+                    placeholder="Repita a senha">
+                <p id="matchError" class="text-red-500 text-xs mt-1 hidden">As senhas não coincidem.</p>
+            </div>
+
+            <button type="submit" id="submitBtn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors shadow-md flex justify-center items-center mt-6">
+                <span>Criar Conta</span>
+            </button>
+        </form>
+
+        <div class="text-center pt-4 border-t border-slate-100">
+            <p class="text-sm text-slate-600">
+                Já possui uma conta? 
+                <a href="index.html" class="text-blue-600 font-semibold hover:underline">Fazer Login</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('registerForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const alertBox = document.getElementById('alertBox');
+        
+        // 1. Auto-preenchimento vindo do Convite
+        // Se a URL for cadastro.html?email=exemplo@teste.com, preenchemos o campo.
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const emailParam = params.get('email');
+            if (emailParam) {
+                const emailInput = document.getElementById('email');
+                emailInput.value = emailParam;
+                // Opcional: Adicionar um efeito visual para mostrar que foi preenchido
+                emailInput.classList.add('bg-blue-50');
+            }
+        });
+
+        // 2. Lógica de Validação e Envio
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Captura dados
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Validação de Senha
+            if (password !== confirmPassword) {
+                document.getElementById('matchError').classList.remove('hidden');
+                document.getElementById('confirmPassword').classList.add('border-red-500');
+                return;
+            } else {
+                document.getElementById('matchError').classList.add('hidden');
+                document.getElementById('confirmPassword').classList.remove('border-red-500');
+            }
+
+            // UI Loading
+            setLoading(true);
+            hideAlert();
+
+            try {
+                // Envia para a API
+                const response = await fetch('api.php?action=register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        email: email,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // SUCESSO
+                    form.classList.add('hidden'); // Esconde o formulário
+                    
+                    // Mostra mensagem de sucesso persistente
+                    const successHtml = `
+                        <div class="text-center py-4">
+                            <div class="mx-auto h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600">
+                                <span class="material-symbols-outlined" style="font-size: 36px;">mail</span>
+                            </div>
+                            <h2 class="text-xl font-bold text-slate-800 mb-2">Cadastro Realizado!</h2>
+                            <p class="text-slate-600 mb-6">
+                                Enviamos um e-mail de confirmação para <b>${email}</b>.
+                                <br>Por favor, verifique sua caixa de entrada (e spam) para ativar sua conta.
+                            </p>
+                            <a href="index.html" class="inline-block w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition">
+                                Ir para Login
+                            </a>
+                        </div>
+                    `;
+                    // Substitui o conteúdo do card pela mensagem de sucesso
+                    document.querySelector('.bg-white').innerHTML = successHtml;
+
+                } else {
+                    // ERRO (Ex: Email já existe)
+                    showAlert(data.message || 'Erro ao realizar cadastro.', 'error');
+                    setLoading(false);
+                }
+
+            } catch (error) {
+                console.error(error);
+                showAlert('Erro de conexão com o servidor.', 'error');
+                setLoading(false);
+            }
+        });
+
+        // Funções Auxiliares
+        function setLoading(isLoading) {
+            if (isLoading) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="loading-spinner"></span> Criando conta...';
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>Criar Conta</span>';
+            }
+        }
+
+        function showAlert(msg, type) {
+            alertBox.classList.remove('hidden', 'bg-red-50', 'text-red-700', 'border-red-200', 'bg-green-50', 'text-green-700', 'border-green-200');
+            alertBox.innerText = msg;
+
+            if (type === 'error') {
+                alertBox.classList.add('bg-red-50', 'text-red-700', 'border-red-200');
+            } else {
+                alertBox.classList.add('bg-green-50', 'text-green-700', 'border-green-200');
+            }
+        }
+
+        function hideAlert() {
+            alertBox.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

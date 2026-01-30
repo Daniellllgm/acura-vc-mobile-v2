@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebApp BLE Pro - Diagnóstico e Monitoramento</title>
+    <style>
+        :root { --primary: #2563eb; --primary-dark: #1e40af; --bg: #f3f4f6; --card: #ffffff; }
+        * { box-sizing: border-box; outline: none; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0; padding: 20px;
+            background: var(--bg); color: #1f2937;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1000px; margin: 0 auto;
+            background: var(--card); border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 25px; color: white;
+        }
+        h1 { margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
+        .badge-ver { background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
+        
+        /* Controles Principais */
+        .controls { padding: 20px; border-bottom: 1px solid #e5e7eb; display: grid; gap: 15px; }
+        .control-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        
+        button { 
+            padding: 10px 16px; border: none; border-radius: 8px;
+            font-weight: 600; cursor: pointer; transition: all 0.2s;
+            background: #e5e7eb; color: #374151;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        button:hover:not(:disabled) { filter: brightness(0.95); transform: translateY(-1px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-action { background: #10b981; color: white; }
+        .btn-warn { background: #f59e0b; color: white; }
+        
+        select { padding: 10px; border-radius: 8px; border: 1px solid #d1d5db; flex-grow: 1; min-width: 200px; }
+        
+        /* Device Info Panel */
+        #deviceInfo {
+            background: #eff6ff; border-left: 4px solid var(--primary);
+            padding: 15px; margin: 20px; border-radius: 0 8px 8px 0;
+            display: none;
+        }
+
+        /* Log Area */
+        .log-container { padding: 20px; }
+        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        #log { 
+            background: #111827; color: #10b981;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            padding: 15px; border-radius: 8px;
+            height: 400px; overflow-y: auto;
+            font-size: 13px; line-height: 1.5;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        /* Estilos de Log */
+        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #1f2937; padding-bottom: 2px; }
+        .ts { color: #6b7280; margin-right: 8px; user-select: none; }
+        .dir { font-weight: bold; margin-right: 5px; }
+        .dir.rx { color: #34d399; } /* Recebido */
+        .dir.tx { color: #60a5fa; } /* Enviado */
+        .dir.sys { color: #fbbf24; } /* Sistema */
+        .dir.err { color: #ef4444; } /* Erro */
+        
+        .val-highlight { color: #ffffff; font-weight: bold; background: #059669; padding: 2px 6px; border-radius: 4px; }
+        .hex-dump { color: #9ca3af; font-size: 0.9em; margin-top: 2px; display: block; }
+        
+        /* Utility */
+        .grid-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 10px; }
+        .hidden { display: none !important; }
+        
+        @media (max-width: 600px) {
+            .control-row { flex-direction: column; align-items: stretch; }
+            h1 { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>
+            <span>📡 WebApp BLE Expert</span>
+            <span class="badge-ver">v2.1 Fix-32bit</span>
+        </h1>
+        <div style="font-size: 0.9em; opacity: 0.9; margin-top: 5px;">
+            Suporte a: HTS (Health Thermometer), HC268, Polar, Mi Band e Genéricos
+        </div>
+    </header>
+
+    <div class="controls">
+        <div class="control-row">
+            <button id="btnScan" class="btn-primary">🔍 Escanear</button>
+            <button id="btnDisconnect" class="btn-danger" disabled>❌ Desconectar</button>
+            <select id="deviceSelect" disabled>
+                <option value="">Nenhum dispositivo selecionado</option>
+            </select>
+        </div>
+        <div id="connectionStatus" style="font-size: 0.9em; color: #666;">Status: Aguardando...</div>
+    </div>
+
+    <div id="deviceInfo"></div>
+
+    <div class="controls" id="actionPanel" style="opacity: 0.5; pointer-events: none;">
+        <h3 style="margin: 0 0 10px 0; font-size: 1em; color: #4b5563;">Protocolos e Serviços</h3>
+        <div class="grid-buttons">
+            <button id="btnTemp" class="btn-action">🌡️ Termômetro (0x1809)</button>
+            <button id="btnHR" class="btn-danger">❤️ Frequência Cardíaca</button>
+            <button id="btnOx" class="btn-action">🌱 Oximetria (Teste)</button>
+            <button id="btnBatt" class="btn-warn">🔋 Bateria</button>
+            <button id="btnRaw" class="btn-primary">💾 Monitor RAW (Todos)</button>
+        </div>
+        <div style="margin-top: 10px; font-size: 0.85em; color: #666;">
+            <em>*A correção 32-bit FLOAT é aplicada automaticamente no Termômetro.</em>
+        </div>
+    </div>
+
+    <div class="log-container">
+        <div class="log-header">
+            <strong>Terminal de Dados</strong>
+            <button id="btnClear" style="padding: 4px 8px; font-size: 0.8rem;">🧹 Limpar</button>
+        </div>
+        <div id="log"></div>
+    </div>
+</div>
+
+<script>
+    // ================= CONFIGURAÇÃO E UUIDS =================
+    const UUIDS = {
+        SERVICE_THERMOMETER: 0x1809,
+        CHAR_TEMP_MEASUREMENT: 0x2A1C, // Padrão FLOAT 32-bit
+        
+        SERVICE_HEART_RATE: 0x180D,
+        CHAR_HR_MEASUREMENT: 0x2A37,
+        
+        SERVICE_BATTERY: 0x180F,
+        CHAR_BATTERY_LEVEL: 0x2A19,
+        
+        SERVICE_DEVICE_INFO: 0x180A,
+        CHAR_MANUFACTURER: 0x2A29,
+        CHAR_MODEL: 0x2A24,
+
+        SERVICE_PULSE_OXIMETER: 0x1822,
+        CHAR_PLX_SPOT_CHECK:    0x2A5E, // Verificação pontual (Spot Check)
+        CHAR_PLX_CONTINUOUS:    0x2A5F, // Medição contínua
+
+        XIAOMI_SERVICE: '0000fee0-0000-1000-8000-00805f9b34fb', // Serviço Principal da Mi Band
+        XIAOMI_AUTH_CHAR: '00000009-0000-3512-2118-0009af100700' // Característica de Autenticação
+    };
+
+    // Estado Global
+    let deviceCache = null;
+    let serverCache = null;
+    let activeCharacteristics = new Map(); // Armazena notificações ativas
+
+    // Elementos DOM
+    const el = (id) => document.getElementById(id);
+    const logEl = el('log');
+    const statusEl = el('connectionStatus');
+
+    // ================= DECODIFICADORES (O SEGREDO DA CORREÇÃO) =================
+
+    /**
+     * Decodifica IEEE-11073 32-bit FLOAT
+     * Estrutura: 8-bit Exponent (Byte 3) + 24-bit Mantissa (Bytes 0-2)
+     * Utilizado pelo padrão Bluetooth 0x2A1C (Temperature Measurement)
+     */
+    function decodeIEEE11073FLOAT(dataView, offset = 0) {
+        // Leitura da Mantissa (24-bit little endian)
+        let b0 = dataView.getUint8(offset);
+        let b1 = dataView.getUint8(offset + 1);
+        let b2 = dataView.getUint8(offset + 2);
+        let mantissa = b0 | (b1 << 8) | (b2 << 16);
+
+        // Leitura do Expoente (8-bit signed)
+        let exponent = dataView.getInt8(offset + 3);
+
+        // Conversão de Complemento de 2 para Mantissa 24-bit
+        if (mantissa & 0x800000) {
+            // Se o bit 23 for 1, é negativo.
+            // Subtraímos 2^24 para obter o valor negativo correto
+            mantissa = mantissa - 0x1000000;
+        }
+
+        // Caso especial: NaN, NRes, Infinity definidos pelo padrão
+        if (mantissa === 0x7FFFFF) return NaN;
+
+        return mantissa * Math.pow(10, exponent);
+    }
+
+    /**
+     * Decodifica IEEE-11073 16-bit SFLOAT
+     * Estrutura: 4-bit Exponent + 12-bit Mantissa
+     */
+    function decodeIEEE11073SFLOAT(dataView, offset = 0) {
+        let val = dataView.getUint16(offset, true); // Little Endian
+        let mantissa = val & 0x0FFF;
+        let exponent = (val >> 12) & 0x0F;
+
+        // Complemento de 2 para 12 bits
+        if (mantissa >= 0x0800) mantissa = -((0x0FFF + 1) - mantissa);
+        
+        // Complemento de 2 para 4 bits
+        if (exponent >= 0x0008) exponent = -((0x000F + 1) - exponent);
+
+        return mantissa * Math.pow(10, exponent);
+    }
+
+    // ================= LÓGICA DE UI E LOGS =================
+
+    function log(msg, type = 'sys', hex = null) {
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        const time = new Date().toLocaleTimeString('pt-BR', { hour12: false, fractionalSecondDigits: 3 });
+        
+        let hexSpan = '';
+        if (hex) {
+            const hexStr = Array.from(new Uint8Array(hex))
+                .map(b => b.toString(16).padStart(2,'0').toUpperCase())
+                .join(' ');
+            hexSpan = `<span class="hex-dump">RAW: ${hexStr}</span>`;
+        }
+
+        div.innerHTML = `<span class="ts">[${time}]</span><span class="dir ${type}">${type.toUpperCase()}:</span> ${msg} ${hexSpan}`;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function updateStatus(msg, connected = false) {
+        statusEl.textContent = `Status: ${msg}`;
+        statusEl.style.color = connected ? 'green' : (msg.includes('Erro') ? 'red' : '#666');
+        
+        el('btnScan').disabled = connected;
+        el('deviceSelect').disabled = connected;
+        el('btnDisconnect').disabled = !connected;
+        
+        const panel = el('actionPanel');
+        panel.style.opacity = connected ? '1' : '0.5';
+        panel.style.pointerEvents = connected ? 'auto' : 'none';
+    }
+
+    // ================= FUNCIONALIDADES BLE =================
+
+    el('btnScan').onclick = async () => {
+        try {
+            updateStatus('Escaneando...');
+            log('Iniciando scan de dispositivos (Todos os serviços)...', 'sys');
+            
+            // Requisita dispositivo com filtros permissivos para encontrar HTS, HC268, etc.
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [
+                    UUIDS.XIAOMI_SERVICE,
+                    UUIDS.SERVICE_THERMOMETER, 
+                    UUIDS.SERVICE_HEART_RATE, 
+                    UUIDS.SERVICE_BATTERY, 
+                    UUIDS.SERVICE_DEVICE_INFO,
+                    '0000fee0-0000-1000-8000-00805f9b34fb' // Xiaomi
+                ]
+            });
+
+            deviceCache = device;
+            el('deviceSelect').innerHTML = `<option value="${device.id}">${device.name || 'Sem Nome'} (${device.id})</option>`;
+            
+            log(`Dispositivo selecionado: ${device.name}`, 'sys');
+            connectToDevice(device);
+
+        } catch (error) {
+            log(`Erro no scan: ${error}`, 'err');
+            updateStatus('Erro no Scan');
+        }
+    };
+
+    el('btnDisconnect').onclick = () => {
+        if (deviceCache && deviceCache.gatt.connected) {
+            deviceCache.gatt.disconnect();
+        } else {
+            handleDisconnection();
+        }
+    };
+
+    async function connectToDevice(device) {
+        try {
+            updateStatus('Conectando...');
+            device.addEventListener('gattserverdisconnected', handleDisconnection);
+            
+            serverCache = await device.gatt.connect();
+            log('⚡ Conectado ao GATT Server', 'sys');
+            updateStatus('Conectado', true);
+
+            // Ler info básica
+            readDeviceInfo();
+
+        } catch (error) {
+            log(`Erro de conexão: ${error}`, 'err');
+            updateStatus('Erro de Conexão');
+        }
+    }
+
+    function handleDisconnection() {
+        log('🔌 Desconectado', 'warn');
+        updateStatus('Desconectado');
+        el('deviceInfo').style.display = 'none';
+        activeCharacteristics.clear();
+    }
+
+    async function readDeviceInfo() {
+        try {
+            const service = await serverCache.getPrimaryService(UUIDS.SERVICE_DEVICE_INFO);
+            
+            let infoText = `<strong>${deviceCache.name}</strong><br>`;
+            
+            try {
+                const charManu = await service.getCharacteristic(UUIDS.CHAR_MANUFACTURER);
+                const valManu = await charManu.readValue();
+                infoText += `Fabr: ${new TextDecoder().decode(valManu)}<br>`;
+            } catch(e){}
+
+            try {
+                const charModel = await service.getCharacteristic(UUIDS.CHAR_MODEL);
+                const valModel = await charModel.readValue();
+                infoText += `Modelo: ${new TextDecoder().decode(valModel)}`;
+            } catch(e){}
+
+            const div = el('deviceInfo');
+            div.innerHTML = infoText;
+            div.style.display = 'block';
+            log('Info do dispositivo lida', 'sys');
+        } catch (e) {
+            log('Info do dispositivo não disponível ou protegida', 'warn');
+        }
+    }
+
+    // ================= MANIPULADORES DE SERVIÇOS =================
+
+    // --- TERMÔMETRO (A Correção Principal) ---
+    el('btnTemp').onclick = async () => {
+        startNotification(UUIDS.SERVICE_THERMOMETER, UUIDS.CHAR_TEMP_MEASUREMENT, (value) => {
+            // Buffer: [Flags (1 byte), Temp (4 bytes - FLOAT), Timestamp (7 bytes opt), Type (1 byte opt)]
+            const flags = value.getUint8(0);
+            const isFahrenheit = (flags & 0x01) === 1;
+            const hasTimestamp = (flags & 0x02) === 2;
+            const hasType = (flags & 0x04) === 4;
+
+            // AQUI ESTÁ A CORREÇÃO: Usar FLOAT (32-bit) em vez de SFLOAT
+            // Offset é 1 porque o byte 0 é flags
+            let temperature = decodeIEEE11073FLOAT(value, 1);
+            
+            let unit = '°C';
+            if (isFahrenheit) {
+                temperature = (temperature - 32) * (5/9); // Converter para C internamente para consistência
+                unit = '°F (Convertido para °C)';
+            }
+
+            let extra = '';
+            // Se houver timestamp (normalmente pula 1+4 = 5 bytes)
+            if (hasTimestamp) {
+                // Lógica de data omitida para brevidade, mas ocuparia +7 bytes
+                extra += ' [Com Data]';
+            }
+
+            log(`Temp: <span class="val-highlight">${temperature.toFixed(2)} °C</span> ${extra}`, 'rx', value.buffer);
+        });
+    };
+
+    // --- FREQUÊNCIA CARDÍACA ---
+    el('btnHR').onclick = async () => {
+        startNotification(UUIDS.SERVICE_HEART_RATE, UUIDS.CHAR_HR_MEASUREMENT, (value) => {
+            const flags = value.getUint8(0);
+            const is16Bit = (flags & 0x01) === 1;
+            
+            let hr = is16Bit ? value.getUint16(1, true) : value.getUint8(1);
+            log(`Heart Rate: <span class="val-highlight">${hr} bpm</span>`, 'rx', value.buffer);
+        });
+    };
+
+    //---  SpO2 ---
+    el('btnOx').onclick = async () => {
+        // Tenta ler o padrão de Oximetria
+        startNotification(UUIDS.SERVICE_PULSE_OXIMETER, UUIDS.CHAR_PLX_CONTINUOUS, (value) => {
+            const flags = value.getUint8(0);
+            const spo2 = decodeIEEE11073SFLOAT(value, 1); // SpO2 geralmente é o 2º campo
+            const pulse = decodeIEEE11073SFLOAT(value, 3); // Pulso geralmente é o 3º
+            log(`SpO2: ${spo2}% | Pulso: ${pulse} bpm`, 'rx');
+        });
+    };
+    // --- BATERIA ---
+    el('btnBatt').onclick = async () => {
+        try {
+            const service = await serverCache.getPrimaryService(UUIDS.SERVICE_BATTERY);
+            const char = await service.getCharacteristic(UUIDS.CHAR_BATTERY_LEVEL);
+            const value = await char.readValue();
+            const level = value.getUint8(0);
+            log(`Bateria: <span class="val-highlight">${level}%</span>`, 'rx', value.buffer);
+        } catch (e) {
+            log(`Erro Bateria: ${e}`, 'err');
+        }
+    };
+
+    // --- MONITOR RAW (GENÉRICO) ---
+    el('btnRaw').onclick = async () => {
+        log('Tentando conectar a todas as notificações disponíveis...', 'sys');
+        try {
+            const services = await serverCache.getPrimaryServices();
+            for (const service of services) {
+                const chars = await service.getCharacteristics();
+                for (const char of chars) {
+                    if (char.properties.notify) {
+                        try {
+                            await char.startNotifications();
+                            char.addEventListener('characteristicvaluechanged', (ev) => {
+                                const v = ev.target.value;
+                                const hex = Array.from(new Uint8Array(v.buffer)).map(b=>b.toString(16).padStart(2,'0')).join('');
+                                log(`NOTIFY [${char.uuid.slice(4,8)}]: ${hex}`, 'rx');
+                            });
+                            log(`Monitorando: ${char.uuid}`, 'sys');
+                        } catch(e) {}
+                    }
+                }
+            }
+        } catch (e) {
+            log(`Erro Raw: ${e}`, 'err');
+        }
+    };
+
+    // --- HELPER DE NOTIFICAÇÃO ---
+    async function startNotification(serviceUUID, charUUID, callback) {
+        const key = `${serviceUUID}-${charUUID}`;
+        if (activeCharacteristics.has(key)) {
+            log('Já monitorando este serviço', 'warn');
+            return;
+        }
+
+        try {
+            log(`Buscando serviço ${serviceUUID.toString(16)}...`, 'sys');
+            const service = await serverCache.getPrimaryService(serviceUUID);
+            const char = await service.getCharacteristic(charUUID);
+            
+            await char.startNotifications();
+            char.addEventListener('characteristicvaluechanged', (event) => {
+                callback(event.target.value);
+            });
+            
+            activeCharacteristics.set(key, char);
+            log(`Notificações iniciadas para ${charUUID.toString(16)}`, 'sys');
+            
+        } catch (error) {
+            log(`Erro ao iniciar serviço: ${error.message}`, 'err');
+            // Tentar fallback ou sugerir modo RAW
+        }
+    }
+
+    el('btnClear').onclick = () => logEl.innerHTML = '';
+
+</script>
+</body>
+</html>
