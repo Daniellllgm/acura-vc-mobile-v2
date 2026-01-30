@@ -2,8 +2,5 @@
   "appId": "com.acura.vc",
   "appName": "Acura VC",
   "webDir": "www",
-  "ios": {
-    "path": "ios"
-  },
   "bundledWebRuntime": false
 }
